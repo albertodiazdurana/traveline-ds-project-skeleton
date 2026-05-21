@@ -33,91 +33,96 @@ Single session, single deliverable. Work commits directly to the session branch 
 
 Items are numbered to match `_reference/preliminary-plan.md`. Read that file for path/scope-budget/interview-hook detail per item.
 
+**Ordering principle:** the list below is **execution order**, not the menu order from `_reference/preliminary-plan.md`. Item numbers reference the preliminary-plan menu and are deliberately out of sequence here, because a human DS engineer:
+1. Writes things bottom-up by data dependency (sample data → loader → transformer → model → train), not menu order.
+2. Interleaves each test with the code it covers, not in a final test pass.
+3. Defers `config.py` until duplication exists (avoid premature abstraction).
+4. Promotes sample data to a foundation step because nothing downstream can be exercised without it.
+
 ### MUST (15 items — sprint fails without these)
 
 Foundation:
 - [x] **Item 1** — `.gitignore` *(committed `5c95661`)*
 - [ ] **Item 2** — `pyproject.toml` (deps + ruff + mypy config, ~40 lines)
-- [ ] **Item 3** — `README.md` (project overview + run instructions, ~50 lines)
+- [ ] **Item 3** — `README.md` (stub: title + run instructions only; expand in Phase 6, ~20 lines now)
 
-Package skeleton:
+End-to-end runnable pipeline (hardcoded values where reasonable):
 - [ ] **Item 4** — `src/rebooking/__init__.py` (empty init, src-layout marker)
-- [ ] **Item 5** — `src/rebooking/config.py` (config loader + model hyperparams, ~25 lines)
-
-Data layer:
-- [ ] **Item 6** — `src/rebooking/data/load.py` (CSV/parquet loader with schema validation, ~30 lines)
-
-Features (bug planted here):
-- [ ] **Item 7** — `src/rebooking/features/transform.py` (FeatureTransformer with fit/transform/fit_transform, ~40 lines) — **planted bug lives here**
-
-Model + training:
+- [ ] **Item 17** — `scripts/make_sample_data.py` *(promoted from SHOULD)* — synthetic CSV generator; becomes the schema anchor for everything downstream (~25 lines)
+- [ ] **Item 6** — `src/rebooking/data/load.py` (CSV loader + schema validation against the sample data shape, ~30 lines)
+- [ ] **Item 7** — `src/rebooking/features/transform.py` — `FeatureTransformer` with **correct** fit/transform/fit_transform semantics (~40 lines)
+- [ ] **Item 9** — `tests/unit/test_transform.py` *(interleaved)* — shape, no-nulls, unseen-category, fit-on-train-only invariant (~30 lines)
 - [ ] **Item 8** — `src/rebooking/models/baseline.py` (LogisticRegression wrapper, ~20 lines)
-- [ ] **Item 10** — `src/rebooking/training/train.py` (orchestrator: load → split → fit → eval → MLflow log, ~50 lines)
+- [ ] **Item 10** — `src/rebooking/training/train.py` — orchestrator: load → split → fit → eval → MLflow log (~50 lines). **Planted bug lives here** (fit-before-split in the orchestration, not inside `transform.py`).
+
+Extract config once duplication exists:
+- [ ] **Item 5** — `src/rebooking/config.py` *(demoted; extract after `train.py` reveals what to extract)* — config loader + hyperparams (~25 lines)
 
 Serving:
-- [ ] **Item 11** — `src/rebooking/serving/app.py` (FastAPI app with `/predict` + `/health`, ~40 lines)
-- [ ] **Item 12** — `src/rebooking/serving/schemas.py` (Pydantic request/response models, ~20 lines)
-
-Tests:
-- [ ] **Item 9** — `tests/unit/test_transform.py` (shape, no-nulls, unseen-category, ~30 lines)
-- [ ] **Item 13** — `tests/unit/test_serving.py` (FastAPI TestClient: /health 200, /predict shape, ~25 lines)
+- [ ] **Item 12** — `src/rebooking/serving/schemas.py` *(before app.py)* — Pydantic request/response models as the contract (~20 lines)
+- [ ] **Item 11** — `src/rebooking/serving/app.py` — FastAPI app with `/predict` + `/health` (~40 lines)
+- [ ] **Item 13** — `tests/unit/test_serving.py` *(interleaved)* — TestClient: `/health` 200, `/predict` shape (~25 lines)
 
 Container + CI:
 - [ ] **Item 14** — `Dockerfile` (multi-stage: builder → runtime, ~25 lines)
 - [ ] **Item 16** — `.github/workflows/ci.yml` (lint + type-check + test on PR, ~30 lines)
 
 ### SHOULD (defer if blocked)
-- [ ] **Item 17** — Sample synthetic data generator script (`scripts/make_sample_data.py`, ~25 lines) for self-contained demos
+- [ ] **Item 3 expansion** — Flesh out `README.md` with structure overview, talking-point map, run examples
 - [ ] **Item 18** — `Makefile` (or `justfile`) with `install`, `train`, `serve`, `test`, `lint` targets
 
 ### COULD (stretch — only if interview prep slack remains)
-- [ ] **Item 19+** — Anything else from the preliminary plan beyond the 16 above (review menu the morning of)
+- [ ] **Item 19+** — Anything else from the preliminary plan beyond the items above (review menu the morning of)
 
 ---
 
 ## Phases
 
-### Phase 1: Foundation (Items 1-3)
-- **Focus:** Repo files an interviewer expects to see when they `ls` the project root.
-- **Deliverables:** `.gitignore` (done), `pyproject.toml`, `README.md`.
+### Phase 1: Foundation (Items 1, 2, 3-stub)
+- **Focus:** Repo files an interviewer expects to see when they `ls` the project root. README is a stub at this stage — it gets fleshed out in Phase 6 once the code it describes actually exists.
+- **Deliverables:** `.gitignore` (done), `pyproject.toml`, `README.md` (stub).
 - **Execution mode:** script (file writes + small commits).
 - **DSM references:** DSM_4.0 software engineering adaptation (src-layout, modern packaging).
-- **Success criteria:** `pip install -e .` works in a clean venv; ruff + mypy invocable from `pyproject.toml` config; README answers "what is this and how do I run it" in <60 seconds of reading.
+- **Success criteria:** `pip install -e .` works in a clean venv; ruff + mypy invocable from `pyproject.toml` config; README stub answers "what is this and how do I run it" in two paragraphs.
 
-### Phase 2: Package skeleton (Items 4-5)
-- **Focus:** Importable `rebooking` package + config layer.
-- **Deliverables:** `src/rebooking/__init__.py`, `src/rebooking/config.py`.
-- **Execution mode:** script.
-- **Success criteria:** `python -c "import rebooking"` succeeds inside the editable install; config loader returns a typed dict / dataclass with `C`, `random_state`, paths.
+### Phase 2: Make something runnable end-to-end (Items 4, 17, 6, 7, 9, 8, 10)
+- **Focus:** Bottom-up by data dependency. Generate sample data first so everything downstream has a concrete schema to bind to. Interleave the transform test with the transformer itself. The planted bug is introduced at the very end (`train.py`), not earlier.
+- **Deliverables (in execution order):**
+  1. `src/rebooking/__init__.py` — make the package importable
+  2. `scripts/make_sample_data.py` — synthetic CSV; schema anchor for everything downstream
+  3. `src/rebooking/data/load.py` — read + validate against that schema
+  4. `src/rebooking/features/transform.py` — `FeatureTransformer` with correct fit/transform semantics
+  5. `tests/unit/test_transform.py` — invariant tests on the transformer (shape, no-nulls, unseen-category, fit-on-train-only)
+  6. `src/rebooking/models/baseline.py` — LogisticRegression wrapper
+  7. `src/rebooking/training/train.py` — orchestrator; **planted bug introduced here** (fit-on-full-data-before-split at the orchestration level)
+- **Execution mode:** script with frequent runs (`python scripts/make_sample_data.py`, then `python -m rebooking.training.train` once `train.py` lands).
+- **Success criteria:** `python -m rebooking.training.train` runs end-to-end on the generated sample CSV, logs to `mlruns/`, prints train + test AUC. The bug should be reproducible: test AUC suspiciously close to train AUC (gap < ~2 points on the synthetic data). `pytest tests/unit/test_transform.py` passes (because the bug is at orchestration, not in the transformer's own behavior).
 
-### Phase 3: Data → features → model pipeline (Items 6-8, 10)
-- **Focus:** The DS substance. This is where the planted bug lives.
-- **Deliverables:** `load.py`, `transform.py` (bug planted), `baseline.py`, `train.py`.
-- **Execution mode:** script.
-- **Success criteria:** `python -m rebooking.training.train` runs end-to-end on synthetic data, logs to MLflow `mlruns/`, prints train + test AUC. The bug should be reproducible (test AUC suspiciously close to train AUC).
+### Phase 3: Extract config (Item 5)
+- **Focus:** Pull hardcoded values out of `train.py` into `config.py` only once duplication exists. This is a deliberate "extract on the second use" move — defensible in the interview as a YAGNI choice.
+- **Deliverables:** `src/rebooking/config.py`; `train.py` updated to read from it.
+- **Execution mode:** script + re-run training to confirm no behavior change.
+- **Success criteria:** `train.py` no longer contains hardcoded `C`, `random_state`, `test_size`, or path constants; behavior unchanged.
 
-### Phase 4: Serving (Items 11-12)
-- **Focus:** Train-serve parity demonstration via the FastAPI layer.
-- **Deliverables:** `schemas.py`, `app.py`.
-- **Execution mode:** script + manual smoke (uvicorn + curl).
-- **Success criteria:** `uvicorn rebooking.serving.app:app` starts; `curl localhost:8000/health` returns 200; `POST /predict` with a valid Pydantic body returns a probability.
+### Phase 4: Serving (Items 12, 11, 13)
+- **Focus:** Train-serve parity via FastAPI. Pydantic schemas first (the contract), then the app that implements it, then the test against the contract.
+- **Deliverables (in execution order):**
+  1. `src/rebooking/serving/schemas.py` — Pydantic request/response models
+  2. `src/rebooking/serving/app.py` — FastAPI app with `/predict` + `/health`
+  3. `tests/unit/test_serving.py` — TestClient: `/health` 200, `/predict` shape
+- **Execution mode:** script + manual smoke (`uvicorn rebooking.serving.app:app` + curl) + pytest.
+- **Success criteria:** `uvicorn rebooking.serving.app:app` starts; `curl localhost:8000/health` returns 200; `POST /predict` with a valid body returns a probability; `pytest tests/unit/test_serving.py` passes.
 
-### Phase 5: Tests (Items 9, 13)
-- **Focus:** Demonstrate testing pyramid (unit on transformer, light integration via FastAPI TestClient).
-- **Deliverables:** `test_transform.py`, `test_serving.py`.
-- **Execution mode:** script + pytest.
-- **Success criteria:** `pytest tests/` passes. Tests should be defensible — invariant-style assertions (shape, no-null, unseen-category survival) not just "function returns something."
-
-### Phase 6: Container + CI (Items 14, 16)
+### Phase 5: Container + CI (Items 14, 16)
 - **Focus:** Production-engineering polish.
 - **Deliverables:** `Dockerfile` (multi-stage), `.github/workflows/ci.yml`.
 - **Execution mode:** script.
-- **Success criteria:** `docker build .` succeeds (skip docker run if time-pressed); GitHub Actions YAML parses (`gh workflow view` or local act) — actual CI run depends on remote being added.
+- **Success criteria:** `docker build .` succeeds (skip `docker run` if time-pressed); GitHub Actions YAML parses (`gh workflow view` or local `act`) — actual CI run depends on remote being added.
 
-### Phase 7 (optional): SHOULD items + final dress rehearsal
-- **Focus:** Round-out items if time permits + rehearsal pass.
-- **Deliverables:** Sample data generator, Makefile/justfile, README polish.
-- **Success criteria:** User can demo each Phase 1-6 deliverable in <30 seconds without consulting notes.
+### Phase 6: Polish (SHOULD items if time)
+- **Focus:** README expansion + Makefile/justfile + rehearsal pass.
+- **Deliverables:** `README.md` (full version with structure overview + talking-point map), Makefile/justfile.
+- **Success criteria:** User can demo each Phase 1-5 deliverable in <30 seconds without consulting notes; README's "How to run" section is copy-pasteable into a terminal.
 
 ---
 
@@ -137,11 +142,13 @@ Container + CI:
 ## Risks & mitigations
 
 - **Risk:** Scope creep — temptation to add more files than the plan calls for.
-  **Mitigation:** Plan caps at 16 MUST items; reject additions during build.
+  **Mitigation:** Plan caps at 15 MUST items; reject additions during build.
 - **Risk:** Bug discoverable only after running training — synthetic data might mask leakage signal.
-  **Mitigation:** Item 17 (sample data) should produce a dataset where leakage is visible (e.g., enough categorical cardinality + small enough test split that leakage shifts the metrics by >2 points).
-- **Risk:** Time pressure — interview at 14:30 CEST tomorrow; not all 16 items may finish in one session.
-  **Mitigation:** Hard ordering by phase. Phases 1-4 are critical; Phase 5 (tests) and Phase 6 (CI/Docker) can be partially deferred and built live during the call if needed (also a talking point — "we test as we go").
+  **Mitigation:** `scripts/make_sample_data.py` (Item 17, now in Phase 2) is generated *before* the transformer/trainer exists, so it can be tuned to produce a dataset where leakage is visible — enough categorical cardinality + small enough test split that leakage shifts the metrics by >2 points. If the gap isn't visible after the first training run, tune the sample-data generator before continuing.
+- **Risk:** Time pressure — interview today at 14:30 CEST; not all items may finish in one session.
+  **Mitigation:** Hard ordering by phase. Phases 1-4 are critical; Phase 5 (Docker/CI) can be partially deferred and built live during the call if needed (also a talking point — "we set this up incrementally"). Phase 6 (README polish + Makefile) is optional.
+- **Risk:** Premature config extraction (Item 5) before duplication exists wastes time and creates "designed-for-the-future" smells visible in code review.
+  **Mitigation:** Item 5 moved to Phase 3, deliberately after `train.py` lands. The agent should resist the urge to write `config.py` earlier even if it "feels cleaner."
 
 ## Defensive talking points (interview rehearsal hooks)
 
