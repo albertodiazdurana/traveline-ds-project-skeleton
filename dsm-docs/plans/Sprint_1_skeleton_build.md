@@ -43,8 +43,8 @@ Items are numbered to match `_reference/preliminary-plan.md`. Read that file for
 
 Foundation:
 - [x] **Item 1** — `.gitignore` *(committed `5c95661`)*
-- [ ] **Item 2** — `pyproject.toml` (deps + ruff + mypy config, ~40 lines)
-- [ ] **Item 3** — `README.md` (stub: title + run instructions only; expand in Phase 6, ~20 lines now)
+- [x] **Item 2** — `pyproject.toml` *(committed `4d90b92`)* — PEP 621, hatchling backend, ruff + mypy inline; 44 lines
+- [x] **Item 3** — `README.md` stub *(committed `8125d6c`)* — 37 lines; expansion deferred to Phase 6
 
 End-to-end runnable pipeline (hardcoded values where reasonable):
 - [ ] **Item 4** — `src/rebooking/__init__.py` (empty init, src-layout marker)
