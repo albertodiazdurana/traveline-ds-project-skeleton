@@ -47,8 +47,8 @@ Foundation:
 - [x] **Item 3** — `README.md` stub *(committed `8125d6c`)* — 37 lines; expansion deferred to Phase 6
 
 End-to-end runnable pipeline (hardcoded values where reasonable):
-- [ ] **Item 4** — `src/rebooking/__init__.py` (empty init, src-layout marker)
-- [ ] **Item 17** — `scripts/make_sample_data.py` *(promoted from SHOULD)* — synthetic CSV generator; becomes the schema anchor for everything downstream (~25 lines)
+- [x] **Item 4** — `src/rebooking/__init__.py` *(committed `7374aea`)* — `__version__ = "0.1.0"`; `pip install -e ".[dev]"` validated end-to-end in user's `.venv/`
+- [x] **Item 17** — `scripts/make_sample_data.py` *(committed `115f56a`)* — 1000 rows × 12 cols; extended schema + tuned target for visible leakage; over 25-line budget (115 lines) by design
 - [ ] **Item 6** — `src/rebooking/data/load.py` (CSV loader + schema validation against the sample data shape, ~30 lines)
 - [ ] **Item 7** — `src/rebooking/features/transform.py` — `FeatureTransformer` with **correct** fit/transform/fit_transform semantics (~40 lines)
 - [ ] **Item 9** — `tests/unit/test_transform.py` *(interleaved)* — shape, no-nulls, unseen-category, fit-on-train-only invariant (~30 lines)
