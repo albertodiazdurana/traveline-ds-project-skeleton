@@ -50,7 +50,7 @@ End-to-end runnable pipeline (hardcoded values where reasonable):
 - [x] **Item 4** — `src/rebooking/__init__.py` *(committed `7374aea`)* — `__version__ = "0.1.0"`; `pip install -e ".[dev]"` validated end-to-end in user's `.venv/`
 - [x] **Item 17** — `scripts/make_sample_data.py` *(committed `115f56a`)* — 1000 rows × 12 cols; extended schema + tuned target for visible leakage; over 25-line budget (115 lines) by design
 - [x] **Item 6** — `src/rebooking/data/loader.py` *(committed below)* — `load_bookings()` with strict-column + lenient-dtype schema validation; 43 lines (filename aligned with preliminary plan; was `load.py` in this plan)
-- [ ] **Item 7** — `src/rebooking/features/transform.py` — `FeatureTransformer` with **correct** fit/transform/fit_transform semantics (~40 lines)
+- [x] **Item 7** — `src/rebooking/features/transform.py` *(committed `e5ce20b`)* — 42 lines; OneHotEncoder (handle_unknown='ignore'), StandardScaler, median imputation, cyclic booking_month. Validated end-to-end including unseen-category survival
 - [ ] **Item 9** — `tests/unit/test_transform.py` *(interleaved)* — shape, no-nulls, unseen-category, fit-on-train-only invariant (~30 lines)
 - [ ] **Item 8** — `src/rebooking/models/baseline.py` (LogisticRegression wrapper, ~20 lines)
 - [ ] **Item 10** — `src/rebooking/training/train.py` — orchestrator: load → split → fit → eval → MLflow log (~50 lines). **Planted bug lives here** (fit-before-split in the orchestration, not inside `transform.py`).
