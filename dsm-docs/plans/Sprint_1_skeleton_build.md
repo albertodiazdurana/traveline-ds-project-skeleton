@@ -41,7 +41,9 @@ Items are numbered to match `_reference/preliminary-plan.md`. Read that file for
 
 **Note on scope budgets (revised 2026-05-22, mid-build):** the preliminary plan attached `~N lines` budgets to each item. Those budgets pressured toward incompleteness in practice (`make_sample_data.py` came in at 115 vs a 25-line "budget" and the extra lines were all load-bearing). The right constraint is **"every line is defensible in an interview"**, not a line count. Remaining-item budgets have been stripped from the list below. The historical line counts on already-built items are kept as a record.
 
-**Note on item numbering (revised 2026-05-22, after Item 9):** earlier versions of this plan reassigned `_reference/preliminary-plan.md` item numbers (e.g., called `models/baseline.py` "Item 8" when the preliminary plan reserves Item 8 for `tests/unit/test_loader.py`). That created a silent divergence. The list below now uses **preliminary-plan item numbers verbatim**, with build order captured by list position. There is no separate `models/baseline.py` file — the LogisticRegression instantiation lives inside `models/train.py` (Item 11) per the preliminary plan. One deviation from the preliminary plan that we *kept*: Item 5 is implemented as `scripts/make_sample_data.py` (gitignored generated CSV) rather than a checked-in `data/sample.csv`; this is a defensible upgrade for reproducibility.
+**Note on item numbering (revised 2026-05-22, after Item 9):** this file is the source of truth for the build. Item numbers below happen to match `_reference/preliminary-plan.md` (now archived) for the items that came from it, but the preliminary plan is no longer authoritative — if a future change diverges from it, this plan wins. The list below is what we follow.
+
+One deviation from the preliminary menu that we kept: Item 5 is implemented as `scripts/make_sample_data.py` (gitignored generator) rather than a checked-in `data/sample.csv`; defensible upgrade for reproducibility. There is no separate `models/baseline.py` file — the LogisticRegression instantiation lives inside `models/train.py` (Item 11) directly.
 
 ### MUST (14 items — sprint fails without these)
 

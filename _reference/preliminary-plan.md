@@ -1,5 +1,9 @@
 # Traveline DS Project Skeleton , Preliminary Plan
 
+> **ARCHIVED (2026-05-22).** This file was the initial menu used to seed the build. It is no longer the source of truth. The active source of truth is [`dsm-docs/plans/Sprint_1_skeleton_build.md`](../dsm-docs/plans/Sprint_1_skeleton_build.md), which captures the actual build order, item numbering, and completion state.
+>
+> Keep this file as historical reference for the rationale behind each item (the "Interview hook" paragraphs are the most reusable part). Do not edit it to reflect mid-build decisions; record those in the Sprint 1 plan instead.
+
 **Purpose:** A demonstrable Data Science project skeleton for the Traveline R3-2 Live Pair Coding interview (Fri 2026-05-22 14:30 CEST). Used during the call to (a) show "how I structure a DS project repo" when asked, (b) host live coding exercises, (c) provide a debugging substrate.
 
 **Stack (confirmed):** Python + pip + venv. FastAPI for the API layer. sklearn for modeling. MLflow for tracking. pytest for testing. ruff + mypy for quality. GitHub Actions for CI. Docker for containerization.
