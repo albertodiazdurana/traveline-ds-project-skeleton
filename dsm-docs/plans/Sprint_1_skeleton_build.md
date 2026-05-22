@@ -39,6 +39,8 @@ Items are numbered to match `_reference/preliminary-plan.md`. Read that file for
 3. Defers `config.py` until duplication exists (avoid premature abstraction).
 4. Promotes sample data to a foundation step because nothing downstream can be exercised without it.
 
+**Note on scope budgets (revised 2026-05-22, mid-build):** the preliminary plan attached `~N lines` budgets to each item. Those budgets pressured toward incompleteness in practice (`make_sample_data.py` came in at 115 vs a 25-line "budget" and the extra lines were all load-bearing). The right constraint is **"every line is defensible in an interview"**, not a line count. Remaining-item budgets have been stripped from the list below. The historical line counts on already-built items are kept as a record.
+
 ### MUST (15 items — sprint fails without these)
 
 Foundation:
@@ -51,21 +53,21 @@ End-to-end runnable pipeline (hardcoded values where reasonable):
 - [x] **Item 17** — `scripts/make_sample_data.py` *(committed `115f56a`)* — 1000 rows × 12 cols; extended schema + tuned target for visible leakage; over 25-line budget (115 lines) by design
 - [x] **Item 6** — `src/rebooking/data/loader.py` *(committed below)* — `load_bookings()` with strict-column + lenient-dtype schema validation; 43 lines (filename aligned with preliminary plan; was `load.py` in this plan)
 - [x] **Item 7** — `src/rebooking/features/transform.py` *(committed `e5ce20b`)* — 42 lines; OneHotEncoder (handle_unknown='ignore'), StandardScaler, median imputation, cyclic booking_month. Validated end-to-end including unseen-category survival
-- [ ] **Item 9** — `tests/unit/test_transform.py` *(interleaved)* — shape, no-nulls, unseen-category, fit-on-train-only invariant (~30 lines)
-- [ ] **Item 8** — `src/rebooking/models/baseline.py` (LogisticRegression wrapper, ~20 lines)
-- [ ] **Item 10** — `src/rebooking/training/train.py` — orchestrator: load → split → fit → eval → MLflow log (~50 lines). **Planted bug lives here** (fit-before-split in the orchestration, not inside `transform.py`).
+- [ ] **Item 9** — `tests/unit/test_transform.py` *(interleaved)* — pytest cases: shape preservation, no-nulls after imputation, unseen-category survival, fit-on-train-only invariant
+- [ ] **Item 8** — `src/rebooking/models/baseline.py` — LogisticRegression wrapper with `train_serve_predict_proba` semantics, defensible hyperparam defaults
+- [ ] **Item 10** — `src/rebooking/training/train.py` — orchestrator: load → split → fit → eval → MLflow log. **Planted bug lives here** (fit-before-split in the orchestration, not inside `transform.py`)
 
 Extract config once duplication exists:
-- [ ] **Item 5** — `src/rebooking/config.py` *(demoted; extract after `train.py` reveals what to extract)* — config loader + hyperparams (~25 lines)
+- [ ] **Item 5** — `src/rebooking/config.py` *(demoted; extract after `train.py` reveals what to extract)* — config loader + hyperparams; refactor train.py to read from it
 
 Serving:
-- [ ] **Item 12** — `src/rebooking/serving/schemas.py` *(before app.py)* — Pydantic request/response models as the contract (~20 lines)
-- [ ] **Item 11** — `src/rebooking/serving/app.py` — FastAPI app with `/predict` + `/health` (~40 lines)
-- [ ] **Item 13** — `tests/unit/test_serving.py` *(interleaved)* — TestClient: `/health` 200, `/predict` shape (~25 lines)
+- [ ] **Item 12** — `src/rebooking/serving/schemas.py` *(before app.py)* — Pydantic request/response models as the contract
+- [ ] **Item 11** — `src/rebooking/serving/app.py` — FastAPI app with `/predict` + `/health`, loads the joblib-serialized transformer + model
+- [ ] **Item 13** — `tests/unit/test_serving.py` *(interleaved)* — FastAPI TestClient: `/health` 200, `/predict` returns probability with correct shape, validation error on bad payload
 
 Container + CI:
-- [ ] **Item 14** — `Dockerfile` (multi-stage: builder → runtime, ~25 lines)
-- [ ] **Item 16** — `.github/workflows/ci.yml` (lint + type-check + test on PR, ~30 lines)
+- [ ] **Item 14** — `Dockerfile` — multi-stage (builder + runtime), python:3.11-slim base, non-root user, layered for caching
+- [ ] **Item 16** — `.github/workflows/ci.yml` — lint (ruff) + type-check (mypy) + test (pytest) on PR; matrix on python 3.11/3.12 if useful
 
 ### SHOULD (defer if blocked)
 - [ ] **Item 3 expansion** — Flesh out `README.md` with structure overview, talking-point map, run examples
@@ -90,13 +92,13 @@ Container + CI:
 - **Deliverables (in execution order):**
   1. `src/rebooking/__init__.py` — make the package importable
   2. `scripts/make_sample_data.py` — synthetic CSV; schema anchor for everything downstream
-  3. `src/rebooking/data/load.py` — read + validate against that schema
+  3. `src/rebooking/data/loader.py` — read + validate against that schema
   4. `src/rebooking/features/transform.py` — `FeatureTransformer` with correct fit/transform semantics
   5. `tests/unit/test_transform.py` — invariant tests on the transformer (shape, no-nulls, unseen-category, fit-on-train-only)
   6. `src/rebooking/models/baseline.py` — LogisticRegression wrapper
   7. `src/rebooking/training/train.py` — orchestrator; **planted bug introduced here** (fit-on-full-data-before-split at the orchestration level)
 - **Execution mode:** script with frequent runs (`python scripts/make_sample_data.py`, then `python -m rebooking.training.train` once `train.py` lands).
-- **Success criteria:** `python -m rebooking.training.train` runs end-to-end on the generated sample CSV, logs to `mlruns/`, prints train + test AUC. The bug should be reproducible: test AUC suspiciously close to train AUC (gap < ~2 points on the synthetic data). `pytest tests/unit/test_transform.py` passes (because the bug is at orchestration, not in the transformer's own behavior).
+- **Success criteria:** `python -m rebooking.training.train` runs end-to-end on the generated sample CSV, logs to `mlruns/`, prints train + test AUC. The bug should be **clearly observable**: test AUC suspiciously close to train AUC on the buggy ordering, with a substantial gap (target: ≥ 5 points) under the correct ordering reachable via `dsm-docs/guides/transform-fix.py`. `pytest tests/unit/test_transform.py` passes (because the bug is at orchestration, not in the transformer's own behavior). If the leakage signal isn't visible, retune `scripts/make_sample_data.py` before considering the phase complete.
 
 ### Phase 3: Extract config (Item 5)
 - **Focus:** Pull hardcoded values out of `train.py` into `config.py` only once duplication exists. This is a deliberate "extract on the second use" move — defensible in the interview as a YAGNI choice.
