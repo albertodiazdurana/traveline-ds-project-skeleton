@@ -466,3 +466,53 @@ pytest tests/unit/test_loader.py -v
 Each test writes a CSV under pytest's `tmp_path` directory and reads it back through `load_bookings`. The directory is auto-cleaned by pytest after the run; no `/tmp/` cleanup required. This pattern is the modern replacement for the `/tmp/bad.csv` manual smoke tests recorded earlier in this file.
 
 **Result:** ✓ 2026-05-22 — confirmed pattern: tests are hermetic.
+
+---
+
+## `configs/training.yaml` (Item 10)
+
+Declarative hyperparameters consumed by `src/rebooking/models/train.py` (Item 11). Three top-level sections: `data:`, `model:`, `mlflow:`. Loaded via PyYAML (now a direct dependency in `pyproject.toml`) and parsed into a Pydantic settings model for type-safe access (added in Item 11).
+
+### 1. YAML parses with correct Python types
+
+```bash
+python -c "
+import yaml
+with open('configs/training.yaml') as f:
+    cfg = yaml.safe_load(f)
+print('Sections:', list(cfg.keys()))
+print('test_size type:', type(cfg['data']['test_size']).__name__)
+print('class_weight is None:', cfg['model']['class_weight'] is None)
+print('log_model type:', type(cfg['mlflow']['log_model']).__name__)
+"
+```
+
+**Expected:** Sections `['data', 'model', 'mlflow']`; `test_size` is `float`; `class_weight` is `None` (not the string `'null'`); `log_model` is `bool`.
+
+**Result:** ✓ 2026-05-22 — exact match. PyYAML correctly coerces `null` → `None`, `0.2` → float, `true` → bool.
+
+### 2. data.raw_csv resolves to an actual file
+
+```bash
+python -c "
+import yaml
+from pathlib import Path
+cfg = yaml.safe_load(open('configs/training.yaml'))
+p = Path(cfg['data']['raw_csv'])
+print(f'Path: {p}')
+print(f'Exists: {p.exists()}')
+"
+```
+
+**Expected:** `data/raw/bookings.csv`, exists True (assuming `make_sample_data.py` has been run).
+
+**Result:** ✓ 2026-05-22 — `data/raw/bookings.csv`, Exists: True.
+
+### 3. Schema design check (will be enforced via Pydantic in Item 11)
+
+The YAML's three sections map to three Pydantic models that train.py will define:
+- `DataConfig`: raw_csv (Path), test_size (float, 0 < x < 1), random_state (int)
+- `ModelConfig`: type (Literal["logistic_regression"]), C (float, > 0), max_iter (int, > 0), class_weight (Literal["balanced"] | None)
+- `MLflowConfig`: experiment_name (str), tracking_uri (str), log_model (bool)
+
+Typo in a YAML key → Pydantic ValidationError at load time, not at first access. Defensible interview claim: "this is type-safe config; the alternative is dict access with KeyError at runtime."

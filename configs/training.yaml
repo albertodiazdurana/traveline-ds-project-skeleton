@@ -1,0 +1,25 @@
+# Training configuration for the rebooking skeleton.
+#
+# All hyperparameters and paths consumed by src/rebooking/models/train.py
+# live here, never inline in code. This makes runs reproducible by
+# committing the config alongside any artifact and makes hyperparameter
+# sweeps a question of swapping config files, not editing source.
+#
+# Loaded by train.py via a Pydantic settings model so typos in keys
+# fail at load time, not at the first downstream access.
+
+data:
+  raw_csv: data/raw/bookings.csv
+  test_size: 0.2
+  random_state: 42
+
+model:
+  type: logistic_regression
+  C: 1.0
+  max_iter: 200
+  class_weight: null  # 'balanced' to weight by inverse class frequency
+
+mlflow:
+  experiment_name: rebooking
+  tracking_uri: file:./mlruns
+  log_model: true

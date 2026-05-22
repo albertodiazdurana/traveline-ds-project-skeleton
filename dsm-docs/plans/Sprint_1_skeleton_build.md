@@ -59,7 +59,7 @@ End-to-end runnable pipeline (hardcoded values where reasonable):
 - [x] **Item 7** — `src/rebooking/features/transform.py` *(committed `e5ce20b`; typecheck fix `56a6e77`; target encoding `d9ec057`)* — OneHotEncoder (handle_unknown='ignore'), StandardScaler, median imputation, cyclic booking_month, target-encoded destination
 - [x] **Item 8** — `tests/unit/test_loader.py` *(committed below)* — 6 pytest cases covering loader contract + 3 ValueError branches
 - [x] **Item 9** — `tests/unit/test_transform.py` *(committed `f18a91f`)* — 8 pytest cases covering FeatureTransformer's isolated contract
-- [ ] **Item 10** — `configs/training.yaml` — declarative hyperparams (C, random_state, test_size, paths) so `train.py` reads config rather than hard-coding
+- [x] **Item 10** — `configs/training.yaml` *(committed below)* — three sections (data, model, mlflow); PyYAML added as direct dep in `pyproject.toml`; Pydantic settings model will land in Item 11
 - [ ] **Item 11** — `src/rebooking/models/train.py` — orchestrator: load → split → fit transformer → fit LogisticRegression → eval → MLflow log. **Planted bug lives here** (fit-before-split in the orchestration)
 
 Serving:
