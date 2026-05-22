@@ -60,7 +60,7 @@ End-to-end runnable pipeline (hardcoded values where reasonable):
 - [x] **Item 8** — `tests/unit/test_loader.py` *(committed below)* — 6 pytest cases covering loader contract + 3 ValueError branches
 - [x] **Item 9** — `tests/unit/test_transform.py` *(committed `f18a91f`)* — 8 pytest cases covering FeatureTransformer's isolated contract
 - [x] **Item 10** — `configs/training.yaml` *(committed below)* — three sections (data, model, mlflow); PyYAML added as direct dep in `pyproject.toml`; Pydantic settings model will land in Item 11
-- [ ] **Item 11** — `src/rebooking/models/train.py` — orchestrator: load → split → fit transformer → fit LogisticRegression → eval → MLflow log. **Planted bug lives here** (fit-before-split in the orchestration)
+- [x] **Item 11** — `src/rebooking/models/train.py` *(committed below)* — orchestrator with Pydantic-typed config; load → fit_transform on full data (**bug**) → split → fit LogisticRegression → eval → MLflow log → joblib dump. Measured: +1.2pt test-AUC inflation on seed=42, tests still green
 
 Serving:
 - [ ] **Item 12** — `src/rebooking/api/main.py` — FastAPI app with `/predict` + `/health`, Pydantic request/response models, loads the joblib-serialized transformer + model

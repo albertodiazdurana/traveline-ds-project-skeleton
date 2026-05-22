@@ -516,3 +516,74 @@ The YAML's three sections map to three Pydantic models that train.py will define
 - `MLflowConfig`: experiment_name (str), tracking_uri (str), log_model (bool)
 
 Typo in a YAML key → Pydantic ValidationError at load time, not at first access. Defensible interview claim: "this is type-safe config; the alternative is dict access with KeyError at runtime."
+
+---
+
+## `src/rebooking/models/train.py` (Item 11)
+
+The training orchestrator. Loads data, calls `FeatureTransformer.fit_transform` on the full feature matrix, then splits — **this is where the planted bug lives** (fit-on-full-data-before-split). The transformer and loader are correct in isolation (their unit tests are green); the bug is only at this orchestration level.
+
+### 1. End-to-end run on default config
+
+```bash
+python -m rebooking.models.train
+```
+
+**Expected:** runs without error; prints train AUC, test AUC, artifact path; writes `mlruns/<exp_id>/<run_id>/` and `artifacts/model.joblib`. May emit two warnings (MLflow filesystem-backend FutureWarning, sklearn pickle vs. skops note); both are informational.
+
+**Result:** ✓ 2026-05-22 —
+```
+Train AUC: 0.884
+Test  AUC: 0.686
+Artifact: artifacts/model.joblib
+```
+
+### 2. A/B measurement of the planted bug (seed=42 single split)
+
+Compare train.py-as-committed against the same logic with correct ordering (split first, fit transformer on train only):
+
+| Variant | Train AUC | Test AUC |
+|---|---|---|
+| Buggy (train.py as committed) | 0.884 | 0.686 |
+| Correct (split first) | 0.885 | 0.674 |
+
+**Test-AUC inflation due to leakage: +1.2 points** on this seed. Across 20 random splits (from the retune-turn measurement) the mean inflation was +1.7 pts (max +5.4 pts), positive in 18/20 splits.
+
+This is the realistic-leakage scale: small, consistent, and dangerous specifically because it doesn't look obviously wrong.
+
+### 3. Artifact contents
+
+```bash
+python -c "
+import joblib
+d = joblib.load('artifacts/model.joblib')
+print('Keys:', list(d.keys()))
+print('Transformer median:', d['transformer'].median_days_)
+print('Model coef shape:', d['model'].coef_.shape)
+"
+```
+
+**Expected:** keys `['transformer', 'model']`; transformer has a learned `median_days_`; model coefficients shape `(1, 43)` matching the transformer's output width.
+
+**Result:** ✓ 2026-05-22 — Keys: `['transformer', 'model']`; Transformer learned median: 827.5; Model coef shape: (1, 43).
+
+### 4. Test suite still green
+
+```bash
+pytest tests/
+```
+
+**Expected:** 14 passed. The tests cover FeatureTransformer's and load_bookings's contracts in isolation; they pass *despite* the bug in train.py because the bug is at orchestration, not in those components.
+
+**Result:** ✓ 2026-05-22 — `14 passed in 1.24s`. **This is the killer talking point: the test suite is green and a leakage bug ships to production. The 'component correct, integration wrong' failure mode in its canonical form.**
+
+### 5. MLflow run inspection
+
+```bash
+mlflow ui --backend-store-uri file:./mlruns
+# Then open http://localhost:5000
+```
+
+Visible: the `rebooking` experiment with one run, params (`C=1.0`, `max_iter=200`, `class_weight=None`, `test_size=0.2`), metrics (`train_auc`, `test_auc`, `pos_rate`), tags (`git_sha`, `dataset_rows`, `model_type`), and the logged sklearn model.
+
+**Result:** Not auto-verified (requires interactive browser). Inspect manually as needed; the mlruns/ tree is regenerable from a fresh `python -m rebooking.models.train`.

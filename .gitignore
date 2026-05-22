@@ -15,6 +15,9 @@ env/
 mlruns/
 mlartifacts/
 
+# Trained-model artifacts
+artifacts/
+
 # Data
 data/raw/
 data/interim/
