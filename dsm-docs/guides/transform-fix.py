@@ -45,11 +45,12 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import GridSearchCV, cross_val_score, train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, TargetEncoder
 
 CATEGORICAL = ["destination", "booking_channel", "device_type", "loyalty_tier"]
 NUMERIC = ["age", "budget", "prior_complaints", "party_size", "days_since_last_booking"]
 CYCLIC = ["booking_month"]
+TARGET_ENCODE = ["destination"]
 
 
 class CyclicMonthEncoder(BaseEstimator, TransformerMixin):
@@ -91,6 +92,11 @@ def build_pipeline(C: float = 1.0) -> Pipeline:
             ("num", numeric_pipeline, NUMERIC),
             ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), CATEGORICAL),
             ("month", CyclicMonthEncoder(), CYCLIC),
+            # TargetEncoder is the production-shape version of the per-destination
+            # target encoding in the runtime FeatureTransformer. Pipeline guarantees
+            # it sees only the train fold's labels during fit, structurally
+            # preventing the leakage the runtime version is vulnerable to.
+            ("dest_target", TargetEncoder(target_type="binary", random_state=42), TARGET_ENCODE),
         ],
         remainder="drop",
     )
