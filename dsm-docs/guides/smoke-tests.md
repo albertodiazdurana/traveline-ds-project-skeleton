@@ -388,3 +388,43 @@ GridSearchCV over C in [0.01, 0.1, 1, 10]:
 ```
 
 The single-split gap (Train 0.875 vs Test 0.659) is large because the 50-row test set has high variance. The CV estimate (0.742 ± 0.075) is the honest number. The gap to remember: under correct ordering, mean test AUC is ~0.775; under buggy ordering, ~0.792 (a ~1.7 point inflation, see Retune log).
+
+---
+
+## `tests/unit/test_transform.py` (Item 9)
+
+Pytest unit tests for the FeatureTransformer in isolation. These tests pass regardless of the bug that will arrive in `train.py` — the bug is at the orchestration level, the transformer's own contract is correct.
+
+### 1. All tests green via `pytest tests/`
+
+```bash
+pytest tests/
+```
+
+**Expected:** 8 tests pass, no warnings, completes in <3 seconds.
+
+**Result:** ✓ 2026-05-22 — `8 passed in 1.05s`. Tests:
+- `test_fit_transform_output_shape`
+- `test_train_test_widths_match`
+- `test_no_nulls_in_output`
+- `test_unseen_category_survives_transform`
+- `test_median_learned_from_fit_data_only`
+- `test_target_encoding_optional`
+- `test_target_encoding_populated_when_y_passed`
+- `test_fit_transform_equals_fit_then_transform`
+
+### 2. Verbose run for individual test status
+
+```bash
+pytest tests/unit/test_transform.py -v
+```
+
+**Expected:** each test listed individually with PASSED status.
+
+**Result:** ✓ 2026-05-22 — all 8 PASSED.
+
+### 3. Test fixture is self-contained (does not depend on data/raw/bookings.csv)
+
+The `sample_df` pytest fixture builds a 10-row DataFrame in memory with the canonical 12-column schema. This means `pytest tests/` works in any environment — fresh clone, CI runner, container — without first running `make_sample_data.py`. Verified by running the suite from a temp directory equivalent.
+
+**Result:** ✓ 2026-05-22 — fixture pattern intentional. CI-friendly.

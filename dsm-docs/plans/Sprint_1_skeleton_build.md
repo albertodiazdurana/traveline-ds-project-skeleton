@@ -53,7 +53,7 @@ End-to-end runnable pipeline (hardcoded values where reasonable):
 - [x] **Item 17** — `scripts/make_sample_data.py` *(committed `115f56a`)* — 1000 rows × 12 cols; extended schema + tuned target for visible leakage; over 25-line budget (115 lines) by design
 - [x] **Item 6** — `src/rebooking/data/loader.py` *(committed below)* — `load_bookings()` with strict-column + lenient-dtype schema validation; 43 lines (filename aligned with preliminary plan; was `load.py` in this plan)
 - [x] **Item 7** — `src/rebooking/features/transform.py` *(committed `e5ce20b`)* — 42 lines; OneHotEncoder (handle_unknown='ignore'), StandardScaler, median imputation, cyclic booking_month. Validated end-to-end including unseen-category survival
-- [ ] **Item 9** — `tests/unit/test_transform.py` *(interleaved)* — pytest cases: shape preservation, no-nulls after imputation, unseen-category survival, fit-on-train-only invariant
+- [x] **Item 9** — `tests/unit/test_transform.py` *(committed below)* — 8 pytest cases covering FeatureTransformer's isolated contract; all green (`pytest tests/`)
 - [ ] **Item 8** — `src/rebooking/models/baseline.py` — LogisticRegression wrapper with `train_serve_predict_proba` semantics, defensible hyperparam defaults
 - [ ] **Item 10** — `src/rebooking/training/train.py` — orchestrator: load → split → fit → eval → MLflow log. **Planted bug lives here** (fit-before-split in the orchestration, not inside `transform.py`)
 
