@@ -1,5 +1,7 @@
 # Rebooking
 
+[![CI](https://github.com/albertodiazdurana/traveline-ds-project-skeleton/actions/workflows/ci.yml/badge.svg)](https://github.com/albertodiazdurana/traveline-ds-project-skeleton/actions/workflows/ci.yml)
+
 Customer rebooking prediction skeleton — minimal Python data-science project demonstrating src-layout, modern packaging, MLflow tracking, FastAPI serving, and a multi-stage Dockerfile.
 
 Binary classification: given customer demographics, destination, dates, budget, and acquisition channel, predict whether the customer will rebook within 12 months.

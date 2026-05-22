@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Customer rebooking prediction skeleton (binary classification, src-layout demo)."
 readme = "README.md"
 requires-python = ">=3.11"
-authors = [{ name = "Berto Diaz Durana", email = "adiazdurana@gmail.com" }]
+authors = [{ name = "Alberto Diaz Durana", email = "adiazdurana@gmail.com" }]
 license = { text = "MIT" }
 dependencies = [
     "fastapi>=0.110",
