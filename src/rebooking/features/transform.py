@@ -27,11 +27,11 @@ class FeatureTransformer:
         return self
 
     def transform(self, X: pd.DataFrame) -> np.ndarray:
-        cat = self.encoder.transform(X[CATEGORICAL].astype(str))
+        cat = np.asarray(self.encoder.transform(X[CATEGORICAL].astype(str)))
         num = self.scaler.transform(self._numeric_block(X))
         month = X["booking_month"].to_numpy()
         cyclic = np.column_stack([np.sin(2 * np.pi * month / 12), np.cos(2 * np.pi * month / 12)])
-        return np.hstack([num, cat, cyclic])
+        return np.concatenate([num, cat, cyclic], axis=1)
 
     def fit_transform(self, X: pd.DataFrame) -> np.ndarray:
         return self.fit(X).transform(X)
