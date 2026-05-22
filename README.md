@@ -32,6 +32,14 @@ uvicorn rebooking.serving.app:app --reload
 pytest tests/
 ```
 
+## Hidden challenge
+
+This skeleton contains **one intentional bug** — a common, subtle data-science pitfall. Try to find it by inspecting the code.
+
+Hint: it produces test-set metrics that look better than they should.
+
+If you'd like to compare your finding against a worked production-shape refactor (with structural prevention of the bug, plus `cross_val_score` and `GridSearchCV` properly wired), see the guides directory: [`dsm-docs/guides/`](dsm-docs/guides/).
+
 ## Status
 
 Skeleton in progress. See [`dsm-docs/plans/Sprint_1_skeleton_build.md`](dsm-docs/plans/Sprint_1_skeleton_build.md) for the build order.
