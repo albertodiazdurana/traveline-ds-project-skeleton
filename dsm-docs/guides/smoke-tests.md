@@ -8,6 +8,25 @@ Per-item smoke tests run against each file as it's built. A smoke test is a smal
 
 ---
 
+## Retune log — 2026-05-22
+
+After the initial smoke tests on the 1000×12 dataset, the leakage signal was found to be functionally zero (categorical leakage doesn't bite when train has full vocabulary coverage). The sample data generator and `FeatureTransformer` were retuned:
+
+- `make_sample_data.py`: shrunk to **250 rows**, expanded **destination** to 25 cities with a steep power-law tail, added per-destination structured target effects (~±2 logits), boosted honest AUC to ~0.85.
+- `FeatureTransformer`: added a **target-encoded `destination`** feature (`fit(X, y)` now optionally accepts y; if passed, per-city rebooking-rate is stored and replaces destination at transform time, with global-mean fallback for unseen).
+- `transform-fix.py`: added `sklearn.preprocessing.TargetEncoder` to the ColumnTransformer to match the runtime feature set.
+
+The pre-retune entries below remain as historical record. The post-retune entries are appended at the section per file with the **(post-retune)** label. Both versions of `make_sample_data.py`, `loader.py`, and `transform.py` exercise the same contract; only the numbers changed.
+
+**Post-retune leakage measurement** (250 rows, target encoding, 20 random splits):
+- Honest test AUC: 0.775 ± 0.064
+- Buggy test AUC: 0.792 ± 0.059
+- Mean inflation: +1.7 pts (max +5.4 pts), positive in 18/20 splits
+
+The realistic ~2pt inflation is the interview talking point: real-world leakage rarely looks like the textbook 30-point inflation; it looks like "test metrics slightly better than expected" — which is what makes it dangerous.
+
+---
+
 ## `src/rebooking/__init__.py` (Item 4)
 
 ### 1. Editable install + import
@@ -279,3 +298,93 @@ GridSearchCV over C in [0.01, 0.1, 1, 10]:
 ```
 
 Single-split test AUC (0.732) lands on the optimistic end of the CV distribution (mean 0.689 ± 0.043). This is expected: a single split is one draw from the CV distribution. Cross-validation gives the more honest estimate of generalization.
+
+---
+
+## Post-retune smoke tests (2026-05-22)
+
+These re-exercise the same files against the new 250×12 dataset and the FeatureTransformer with target encoding.
+
+### `make_sample_data.py` (post-retune)
+
+```bash
+python scripts/make_sample_data.py
+```
+
+**Expected:** `Wrote 250 rows to data/raw/bookings.csv (positive rate: ~26%, destinations: 24-25, rarest: 1 row)`.
+
+**Result:** ✓ 2026-05-22 — `Wrote 250 rows to data/raw/bookings.csv (positive rate: 26.40%, destinations: 24, rarest: 1 rows)`.
+
+### `loader.py` (post-retune)
+
+```bash
+python -c "
+from rebooking.data.loader import load_bookings
+df = load_bookings('data/raw/bookings.csv')
+print('Shape:', df.shape)
+print('Target nulls:', df['rebooked'].isnull().sum())
+print('Null counts:', df.isnull().sum()[df.isnull().sum() > 0].to_dict())
+"
+```
+
+**Expected:** shape (250, 12), target nulls 0, ~5-10% nulls in `days_since_last_booking`.
+
+**Result:** ✓ 2026-05-22 — Shape: (250, 12); Target nulls: 0; Null counts: {'days_since_last_booking': 20}.
+
+### `transform.py` (post-retune, no y)
+
+```bash
+python -c "
+from rebooking.data.loader import load_bookings
+from rebooking.features.transform import FeatureTransformer
+df = load_bookings('data/raw/bookings.csv')
+ft = FeatureTransformer()
+X = ft.fit_transform(df.iloc[:200])
+print('Shape:', X.shape, '(no y -> target encoding is constant 0)')
+print('global_rate_:', ft.global_rate_)
+"
+```
+
+**Expected:** shape (200, 43); target encoding column = 0 everywhere (no y provided → fallback to global_rate_ = 0). 43 = 5 numeric + 35 one-hot (~24 destinations + 4 channels + 3 devices + 4 loyalty) + 2 cyclic + 1 target-encoded.
+
+**Result:** ✓ 2026-05-22 — Shape: (200, 43); global_rate_: 0.0.
+
+### `transform.py` (post-retune, with y — target-encoding branch)
+
+```bash
+python -c "
+from rebooking.data.loader import load_bookings
+from rebooking.features.transform import FeatureTransformer
+df = load_bookings('data/raw/bookings.csv')
+ft = FeatureTransformer()
+X_train = ft.fit_transform(df.iloc[:200].drop(columns=['rebooked']), df.iloc[:200]['rebooked'])
+X_test = ft.transform(df.iloc[200:].drop(columns=['rebooked']))
+print('Train:', X_train.shape, 'Test:', X_test.shape, 'Same width:', X_train.shape[1] == X_test.shape[1])
+print('global_rate_:', ft.global_rate_, 'destinations in target_rate_:', len(ft.target_rate_))
+"
+```
+
+**Expected:** Train (200, 43), Test (50, 43), same width True; `global_rate_` ~0.25-0.30; ~24 destinations in `target_rate_`.
+
+**Result:** ✓ 2026-05-22 — Train: (200, 43); Test: (50, 43); Same width: True; global_rate_: 0.28; # destinations seen at fit: 24.
+
+### `transform-fix.py` (post-retune, with TargetEncoder added)
+
+```bash
+python dsm-docs/guides/transform-fix.py
+```
+
+**Expected:** three labeled blocks; train AUC ~0.85-0.88; test AUC ~0.65-0.75 (single-split variance high on small dataset); CV mean ~0.74 ± 0.07.
+
+**Result:** ✓ 2026-05-22 —
+```
+Fit on train (200), evaluate on test (50):
+  Train AUC: 0.875
+  Test  AUC: 0.659   <- gap is real, not leakage-inflated
+5-fold cross-validated test AUC: 0.742 +/- 0.075
+GridSearchCV over C in [0.01, 0.1, 1, 10]:
+  Best C: 10.0
+  Best CV AUC: 0.749
+```
+
+The single-split gap (Train 0.875 vs Test 0.659) is large because the 50-row test set has high variance. The CV estimate (0.742 ± 0.075) is the honest number. The gap to remember: under correct ordering, mean test AUC is ~0.775; under buggy ordering, ~0.792 (a ~1.7 point inflation, see Retune log).
