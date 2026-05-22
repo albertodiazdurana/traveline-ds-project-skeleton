@@ -29,7 +29,7 @@ class FeatureTransformer:
         self.target_rate_: dict[str, float] = {}
         self.global_rate_: float = 0.0
 
-    def fit(self, X: pd.DataFrame, y: pd.Series | None = None) -> "FeatureTransformer":
+    def fit(self, X: pd.DataFrame, y: pd.Series | None = None) -> FeatureTransformer:
         self.median_days_ = float(X["days_since_last_booking"].median())
         numeric = self._numeric_block(X)
         self.encoder.fit(X[CATEGORICAL].astype(str))

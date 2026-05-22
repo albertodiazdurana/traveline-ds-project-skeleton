@@ -117,7 +117,7 @@ class CyclicMonthEncoder(BaseEstimator, TransformerMixin):
     set_params support for free.
     """
 
-    def fit(self, X: pd.DataFrame, y: pd.Series | None = None) -> "CyclicMonthEncoder":
+    def fit(self, X: pd.DataFrame, y: pd.Series | None = None) -> CyclicMonthEncoder:
         return self  # stateless; sklearn estimators must implement fit
 
     def transform(self, X: pd.DataFrame) -> np.ndarray:

@@ -17,10 +17,11 @@ Requires that training has produced artifacts/model.joblib:
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import AsyncIterator, Literal
+from typing import Literal
 
 import joblib
 import pandas as pd

@@ -746,3 +746,60 @@ git ls-files | grep -vE '^(tests/|dsm-docs/|_reference/|\.gitignore$|\.claude/)'
 The Dockerfile separates builder (deps + package install) from runtime (no build tooling, no pip cache). Standard multi-stage pattern. The runtime layer ordering puts `apt-get install curl` before `COPY` so source changes don't bust the apt layer.
 
 **Known optimization deferred:** dep install + source copy share a layer (`COPY src ./src && pip install .`). Pure best practice is to extract dependencies to a separate file and install them before copying source, so source-only changes don't trigger a full reinstall. The current Dockerfile comments this trade-off explicitly. Worth mentioning in an interview if asked about caching: "I know the layering isn't optimal for source-only rebuilds; the next refactor is to extract deps to requirements.txt and install before COPY src."
+
+---
+
+## `.github/workflows/ci.yml` (Item 14)
+
+GitHub Actions workflow: on push/pull_request to main, set up Python 3.11, pip-install with cache, run ruff + mypy + pytest. Single job, no matrix (pyproject.toml pins `requires-python = >=3.11`).
+
+### 1. All three CI checks pass locally
+
+```bash
+ruff check .
+mypy src
+pytest tests/
+```
+
+**Expected:** ruff clean ("All checks passed!"), mypy clean ("Success: no issues found"), pytest 14 passed.
+
+**Result:** ✓ 2026-05-22 — all three green. Pre-commit gate satisfied before publishing the workflow.
+
+### 2. Pre-cleanup state — what ruff initially caught
+
+Before this section landed, ruff was reporting **7 errors** on the codebase:
+- 3× **UP037** in `transform.py`, `transform-fix.py`, `api/main.py` — self-referencing type annotations with unnecessary quotes (e.g., `-> "FeatureTransformer"`). Auto-fixed by `ruff --fix`. `from __future__ import annotations` is already in scope in each file, making the quotes redundant.
+- 1× **UP035** in `api/main.py` — `from typing import AsyncIterator` should be `from collections.abc import AsyncIterator` (PEP 585 / deprecated typing alias). Auto-fixed.
+- 3× **E501** in `tests/unit/test_transform.py` — three 10-element string lists in the fixture exceeded 100-char line-length. Manually wrapped onto two lines each (5 items per line).
+
+**Lesson:** publishing a CI workflow without first running its checks locally is how every first-PR-to-the-CI-pipeline lights up red. Worth mentioning in an interview if asked about CI hygiene: "I ran the same checks locally before adding the workflow; the first push wasn't a discovery surface for lint errors."
+
+### 3. Workflow YAML parses
+
+```bash
+python -c "
+import yaml
+with open('.github/workflows/ci.yml') as f:
+    wf = yaml.safe_load(f)
+print('Triggers:', list(wf[True if True in wf else 'on'].keys()))
+print('Steps:', [s.get('name', s.get('uses')) for s in wf['jobs']['checks']['steps']])
+"
+```
+
+**Expected:** Triggers `['push', 'pull_request']`; 6 steps including Checkout, Set up Python, Install, Ruff, Mypy, Pytest.
+
+**Result:** ✓ 2026-05-22 — exact match. (Aside: PyYAML parses `on:` as Python `True` due to YAML 1.1 boolean-aliasing; GitHub Actions uses a YAML 1.2 parser and handles `on:` correctly. Local validation has to navigate the boolean key, which is why the snippet above checks for `True in wf`.)
+
+### 4. Workflow run — DEFERRED until remote exists
+
+The workflow only triggers on push/pull_request to `main` once the repo is connected to a GitHub remote. Currently the project is local-only (no `origin`).
+
+**To activate:**
+```bash
+gh repo create <owner>/traveline-ds-project-skeleton --private --source=. --remote=origin
+git push -u origin main
+git push origin session-1/2026-05-21
+# Open a PR from the session branch -> main; CI runs on the PR.
+```
+
+**Result:** ✘ NOT AUTO-VERIFIED — no remote configured. Workflow content is verified to parse and to encode the same checks that pass locally; first actual CI run is deferred to whenever the remote is created.

@@ -67,7 +67,7 @@ Serving:
 
 Container + CI:
 - [x] **Item 13** — `Dockerfile` + `.dockerignore` *(committed below)* — multi-stage (builder + runtime), python:3.11-slim, non-root `app` user, HEALTHCHECK on /health, EXPOSE 8000. **Build validation deferred** (no docker in WSL); standard patterns should work but unverified
-- [ ] **Item 14** — `.github/workflows/ci.yml` — lint (ruff) + type-check (mypy) + test (pytest) on PR
+- [x] **Item 14** — `.github/workflows/ci.yml` *(committed below)* — push + PR to main; Python 3.11; ruff + mypy + pytest. All three pre-validated locally green; remote not yet configured so first CI run deferred. Drive-by: fixed 7 ruff errors that would have failed first push (3× UP037, 1× UP035, 3× E501 in tests).
 
 ### Built but not in preliminary MUST list
 - [x] **Item 15 (optional)** — `_reference/bugs-to-find.md` *(gitignored)* — private answer key; rehearsal talking points added in retune cycle
