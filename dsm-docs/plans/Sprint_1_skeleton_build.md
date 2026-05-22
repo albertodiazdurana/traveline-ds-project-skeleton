@@ -66,7 +66,7 @@ Serving:
 - [x] **Item 12** — `src/rebooking/api/main.py` *(committed below)* — FastAPI with lifespan loader; Pydantic-typed request (11 fields) + response (probability + label + version + trained_at + served_at); /health + /predict; train.py updated to stamp metadata into the joblib bundle
 
 Container + CI:
-- [ ] **Item 13** — `Dockerfile` — multi-stage (builder + runtime), python:3.11-slim base, non-root user, layered for caching
+- [x] **Item 13** — `Dockerfile` + `.dockerignore` *(committed below)* — multi-stage (builder + runtime), python:3.11-slim, non-root `app` user, HEALTHCHECK on /health, EXPOSE 8000. **Build validation deferred** (no docker in WSL); standard patterns should work but unverified
 - [ ] **Item 14** — `.github/workflows/ci.yml` — lint (ruff) + type-check (mypy) + test (pytest) on PR
 
 ### Built but not in preliminary MUST list

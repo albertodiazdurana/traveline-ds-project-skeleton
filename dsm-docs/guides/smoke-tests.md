@@ -698,3 +698,51 @@ pytest tests/
 ```
 
 **Result:** ✓ 2026-05-22 — `14 passed in 1.27s`. No regression from adding the API layer.
+
+---
+
+## `Dockerfile` + `.dockerignore` (Item 13)
+
+Multi-stage Docker build for the serving image. Stage 1 (builder) installs the package + deps into `/opt/venv`. Stage 2 (runtime) copies just the venv + runtime payload (`src/`, `configs/`, `artifacts/`), drops into a non-root `app` user, and runs uvicorn on port 8000.
+
+### 1. Build validation — DEFERRED
+
+```bash
+docker build -t rebooking:0.1.0 .
+```
+
+**Expected:** two stages build cleanly; image tagged as `rebooking:0.1.0`; size in the ~300-500 MB range (python:3.11-slim + pandas + sklearn dominate).
+
+**Result:** ✘ NOT AUTO-VERIFIED 2026-05-22 — Docker Desktop is installed on Windows but its WSL integration is not active in this distro (`docker` command not on PATH). Build validation is deferred to the user; the Dockerfile follows standard patterns and should work, but until `docker build` runs, this is unverified. Activating Docker Desktop's WSL integration is a Settings → Resources → WSL integration toggle.
+
+### 2. Run validation — DEFERRED (depends on #1)
+
+```bash
+docker run --rm -p 8000:8000 rebooking:0.1.0
+# In another shell:
+curl http://localhost:8000/health
+curl -X POST http://localhost:8000/predict -H 'Content-Type: application/json' -d @sample_payload.json
+```
+
+**Expected:** container starts, `/health` returns 200, `/predict` works identically to the uvicorn-direct smoke tests in the Item 12 section.
+
+**Result:** ✘ NOT AUTO-VERIFIED — depends on build validation succeeding first.
+
+### 3. .dockerignore prevents context bloat
+
+`.dockerignore` excludes `venv/`, `mlruns/`, `data/`, `tests/`, `dsm-docs/`, `.claude/`, `__pycache__/`, IDE files, and the Dockerfile itself from the build context. Notably **does not** exclude `README.md` because `pyproject.toml`'s `readme = "README.md"` field requires it at `pip install` time.
+
+**Manual sanity check (no Docker needed):**
+```bash
+# Approximation: what would the build context look like?
+# Files git tracks minus .dockerignore patterns.
+git ls-files | grep -vE '^(tests/|dsm-docs/|_reference/|\.gitignore$|\.claude/)' | head -20
+```
+
+**Result:** ✓ 2026-05-22 — list shows pyproject.toml, README.md, src/**, configs/training.yaml, Dockerfile, .dockerignore, .github/, scripts/. No tests/, dsm-docs/, _reference/. Expected payload.
+
+### 4. Image layer design — talking-point check
+
+The Dockerfile separates builder (deps + package install) from runtime (no build tooling, no pip cache). Standard multi-stage pattern. The runtime layer ordering puts `apt-get install curl` before `COPY` so source changes don't bust the apt layer.
+
+**Known optimization deferred:** dep install + source copy share a layer (`COPY src ./src && pip install .`). Pure best practice is to extract dependencies to a separate file and install them before copying source, so source-only changes don't trigger a full reinstall. The current Dockerfile comments this trade-off explicitly. Worth mentioning in an interview if asked about caching: "I know the layering isn't optimal for source-only rebuilds; the next refactor is to extract deps to requirements.txt and install before COPY src."
