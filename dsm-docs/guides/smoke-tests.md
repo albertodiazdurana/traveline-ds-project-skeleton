@@ -428,3 +428,41 @@ pytest tests/unit/test_transform.py -v
 The `sample_df` pytest fixture builds a 10-row DataFrame in memory with the canonical 12-column schema. This means `pytest tests/` works in any environment — fresh clone, CI runner, container — without first running `make_sample_data.py`. Verified by running the suite from a temp directory equivalent.
 
 **Result:** ✓ 2026-05-22 — fixture pattern intentional. CI-friendly.
+
+---
+
+## `tests/unit/test_loader.py` (Item 8)
+
+Pytest unit tests for `load_bookings`. The loader is the data-ingress boundary; the suite covers the happy path plus the three ValueError branches (missing column, extra column, null target) plus two invariants (column-order independence, str/Path acceptance).
+
+### 1. Full suite green via `pytest tests/`
+
+```bash
+pytest tests/
+```
+
+**Expected:** 14 tests pass (6 loader + 8 transform), completes in <3 seconds.
+
+**Result:** ✓ 2026-05-22 — `14 passed in 2.22s`.
+
+### 2. Loader tests in isolation
+
+```bash
+pytest tests/unit/test_loader.py -v
+```
+
+**Expected:** 6 tests, all PASSED:
+- `test_happy_path_returns_dataframe`
+- `test_missing_column_raises`
+- `test_extra_column_raises`
+- `test_null_target_raises`
+- `test_column_order_does_not_matter`
+- `test_accepts_string_and_path_input`
+
+**Result:** ✓ 2026-05-22 — all 6 PASSED.
+
+### 3. Each test uses pytest's `tmp_path` fixture (no test artifacts persist)
+
+Each test writes a CSV under pytest's `tmp_path` directory and reads it back through `load_bookings`. The directory is auto-cleaned by pytest after the run; no `/tmp/` cleanup required. This pattern is the modern replacement for the `/tmp/bad.csv` manual smoke tests recorded earlier in this file.
+
+**Result:** ✓ 2026-05-22 — confirmed pattern: tests are hermetic.
