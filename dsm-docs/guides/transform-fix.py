@@ -5,7 +5,7 @@ things the runtime version trades off in exchange for being a tight 42-line
 class:
 
 1. Structural prevention of train/test data leakage via sklearn.Pipeline
-   (the bug planted in src/rebooking/training/train.py becomes impossible
+   (the bug planted in src/rebooking/models/train.py becomes impossible
    to write here, because the framework calls fit_transform on train and
    transform on test for each split automatically).
 2. cross_val_score and GridSearchCV ergonomics out of the box.
@@ -23,15 +23,70 @@ Requires the sample data to already exist:
 
 Expected output (numbers will vary slightly with rng):
 
-    Fit on train (800), evaluate on test (200):
+    Fit on train (200), evaluate on test (50):
       Train AUC: 0.8xx
-      Test  AUC: 0.7xx   <- gap is real, not the leakage-inflated value
+      Test  AUC: 0.6xx   <- gap is real, not the leakage-inflated value
 
     5-fold cross-validated test AUC: 0.7xx +/- 0.0xx
 
     GridSearchCV over C in [0.01, 0.1, 1, 10]:
       Best C: <value>
       Best CV AUC: 0.7xx
+
+---
+
+Measured impact of the planted bug
+-----------------------------------
+
+Comparing this file's correct-by-construction Pipeline against
+src/rebooking/models/train.py's fit-on-full-data-before-split ordering,
+on the same 250-row generated dataset:
+
+  Single split (seed=42, same as train.py defaults):
+    Buggy   Test AUC: 0.686
+    Correct Test AUC: 0.674
+    ---------------------------
+    Inflation:        +0.012  (+1.2 points)
+
+  20 random splits (seeds 0-19):
+    Mean inflation:   +0.017  (+1.7 points)
+    Max inflation:    +0.054  (+5.4 points)
+    Min inflation:    -0.004  (negative on 2/20 splits)
+    Positive in:      18/20 splits
+
+  Both train AUCs are essentially identical (~0.88) — leakage doesn't
+  inflate train metrics, only test metrics. That's why the bug is
+  insidious: the inflated test AUC looks like generalization, when in
+  fact the model has 'seen' the test set's destination-rate distribution
+  through the target-encoded feature in src/rebooking/features/transform.py.
+
+Why the inflation is modest, not dramatic
+------------------------------------------
+
+With 25 destinations spread across 200 train rows, the OneHotEncoder
+sees nearly the full vocabulary regardless of split ordering — simple
+one-hot leakage doesn't bite. The inflation that DOES show up comes
+from the target-encoded destination column: when fit on full data, the
+per-city mean rebooking rate includes test labels. For rare destinations
+(e.g., 'VAL' with 1 row total) the leaked rate is essentially the test
+row's own label.
+
+This realistic 1-3 point inflation is the interview talking point.
+Textbook leakage examples with 20-30 point gaps require artificial setups
+(N=50, contrived features); production leakage almost always looks like
+the modest signal here — 'test metrics slightly better than expected',
+which is exactly what makes it dangerous and easy to ship.
+
+Reproducing the measurement
+---------------------------
+
+Generate the dataset, then run this file's main() (single-split AUC) and
+the across-splits comparison snippet inline:
+
+    python scripts/make_sample_data.py
+    python dsm-docs/guides/transform-fix.py
+    # For the across-splits comparison, see dsm-docs/guides/smoke-tests.md
+    # under the train.py (Item 11) section.
 """
 
 from __future__ import annotations
