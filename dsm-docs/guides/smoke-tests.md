@@ -252,3 +252,30 @@ print(f'OK: {df.shape} -> {X.shape}')
 - `tests/unit/*.py` (Items 9, 13) — `pytest tests/` green
 - `Dockerfile` (Item 14) — `docker build .` succeeds
 - `.github/workflows/ci.yml` (Item 16) — YAML parses, action triggers as expected once remote is added
+
+---
+
+## `dsm-docs/guides/transform-fix.py` (reference, not a build item)
+
+Production-shape refactor of the feature transformation + training step using `sklearn.Pipeline` + `ColumnTransformer` + custom `CyclicMonthEncoder`. Demonstrates that the planted data-leakage bug in `train.py` becomes structurally impossible when the Pipeline framework handles fit-transform ordering. Includes `cross_val_score` and `GridSearchCV` demonstrations.
+
+### 1. Runs end-to-end and produces the three expected blocks
+
+```bash
+python dsm-docs/guides/transform-fix.py
+```
+
+**Expected:** three labeled blocks — single train/test fit (with train + test AUC), 5-fold CV AUC ± std, GridSearchCV best C + best CV AUC.
+
+**Result:** ✓ 2026-05-22 —
+```
+Fit on train (800), evaluate on test (200):
+  Train AUC: 0.743
+  Test  AUC: 0.732   <- gap is real, not leakage-inflated
+5-fold cross-validated test AUC: 0.689 +/- 0.043
+GridSearchCV over C in [0.01, 0.1, 1, 10]:
+  Best C: 10.0
+  Best CV AUC: 0.690
+```
+
+Single-split test AUC (0.732) lands on the optimistic end of the CV distribution (mean 0.689 ± 0.043). This is expected: a single split is one draw from the CV distribution. Cross-validation gives the more honest estimate of generalization.
