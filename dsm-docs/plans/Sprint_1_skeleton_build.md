@@ -63,7 +63,7 @@ End-to-end runnable pipeline (hardcoded values where reasonable):
 - [x] **Item 11** — `src/rebooking/models/train.py` *(committed below)* — orchestrator with Pydantic-typed config; load → fit_transform on full data (**bug**) → split → fit LogisticRegression → eval → MLflow log → joblib dump. Measured: +1.2pt test-AUC inflation on seed=42, tests still green
 
 Serving:
-- [ ] **Item 12** — `src/rebooking/api/main.py` — FastAPI app with `/predict` + `/health`, Pydantic request/response models, loads the joblib-serialized transformer + model
+- [x] **Item 12** — `src/rebooking/api/main.py` *(committed below)* — FastAPI with lifespan loader; Pydantic-typed request (11 fields) + response (probability + label + version + trained_at + served_at); /health + /predict; train.py updated to stamp metadata into the joblib bundle
 
 Container + CI:
 - [ ] **Item 13** — `Dockerfile` — multi-stage (builder + runtime), python:3.11-slim base, non-root user, layered for caching

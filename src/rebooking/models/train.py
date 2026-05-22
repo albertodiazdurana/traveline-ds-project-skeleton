@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -27,6 +28,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 
+import rebooking
 from rebooking.data.loader import load_bookings
 from rebooking.features.transform import FeatureTransformer
 
@@ -116,7 +118,16 @@ def train(cfg: TrainingConfig) -> None:
             mlflow.sklearn.log_model(model, name="model")
 
     ARTIFACT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump({"transformer": transformer, "model": model}, ARTIFACT_PATH)
+    bundle = {
+        "transformer": transformer,
+        "model": model,
+        "metadata": {
+            "rebooking_version": rebooking.__version__,
+            "git_sha": _git_sha(),
+            "trained_at": datetime.now(UTC).isoformat(),
+        },
+    }
+    joblib.dump(bundle, ARTIFACT_PATH)
 
     print(f"Train AUC: {train_auc:.3f}")
     print(f"Test  AUC: {test_auc:.3f}")

@@ -587,3 +587,114 @@ mlflow ui --backend-store-uri file:./mlruns
 Visible: the `rebooking` experiment with one run, params (`C=1.0`, `max_iter=200`, `class_weight=None`, `test_size=0.2`), metrics (`train_auc`, `test_auc`, `pos_rate`), tags (`git_sha`, `dataset_rows`, `model_type`), and the logged sklearn model.
 
 **Result:** Not auto-verified (requires interactive browser). Inspect manually as needed; the mlruns/ tree is regenerable from a fresh `python -m rebooking.models.train`.
+
+---
+
+## `src/rebooking/api/main.py` (Item 12)
+
+FastAPI app loading `artifacts/model.joblib` at startup via lifespan, exposing `/health` and `/predict`.
+
+### 1. Server starts cleanly
+
+```bash
+uvicorn rebooking.api.main:app --port 8765
+```
+
+**Expected:** uvicorn binds port 8765, logs `Application startup complete`, then `Uvicorn running on http://127.0.0.1:8765`.
+
+**Result:** ✓ 2026-05-22 — clean startup; lifespan loaded the joblib bundle without error.
+
+### 2. `GET /health` returns model metadata
+
+```bash
+curl -s http://127.0.0.1:8765/health
+```
+
+**Expected:** 200; JSON with `status: "ok"`, `model_version`, `trained_at` (ISO 8601 UTC).
+
+**Result:** ✓ 2026-05-22 —
+```json
+{
+  "status": "ok",
+  "model_version": "0.1.0",
+  "trained_at": "2026-05-22T11:37:57.654795+00:00"
+}
+```
+
+### 3. `POST /predict` with valid payload returns full prediction response
+
+```bash
+curl -s -X POST http://127.0.0.1:8765/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_id": 9999, "age": 42, "destination": "BCN",
+    "booking_channel": "app", "budget": 1500.0,
+    "days_since_last_booking": 200, "booking_month": 6,
+    "device_type": "mobile", "loyalty_tier": "gold",
+    "prior_complaints": 0, "party_size": 2
+  }'
+```
+
+**Expected:** 200; response contains `customer_id` (echoed), `rebook_probability` (0..1), `rebook_predicted` (bool at threshold 0.5), `model_version`, `trained_at`, `served_at`.
+
+**Result:** ✓ 2026-05-22 —
+```json
+{
+  "customer_id": 9999,
+  "rebook_probability": 0.8309235346352168,
+  "rebook_predicted": true,
+  "model_version": "0.1.0",
+  "trained_at": "2026-05-22T11:37:57.654795+00:00",
+  "served_at": "2026-05-22T11:44:11.442992+00:00"
+}
+```
+
+### 4. `POST /predict` with null `days_since_last_booking` survives
+
+```bash
+curl -s -X POST http://127.0.0.1:8765/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_id": 9998, "age": 60, "destination": "MAD",
+    "booking_channel": "agent", "budget": 3000.0,
+    "days_since_last_booking": null, "booking_month": 12,
+    "device_type": "desktop", "loyalty_tier": "platinum",
+    "prior_complaints": 1, "party_size": 4
+  }'
+```
+
+**Expected:** 200; null in `days_since_last_booking` is imputed by the FeatureTransformer's `median_days_`; prediction returns normally.
+
+**Result:** ✓ 2026-05-22 — `rebook_probability: 0.8307`, `rebook_predicted: true`. Null survived as designed.
+
+### 5. `POST /predict` with invalid `booking_channel` returns 422
+
+```bash
+curl -s -X POST http://127.0.0.1:8765/predict \
+  -H "Content-Type: application/json" \
+  -d '{... "booking_channel": "carrier_pigeon", ...}'
+```
+
+**Expected:** HTTP 422; Pydantic returns a structured error naming the bad field and listing the allowed Literal values.
+
+**Result:** ✓ 2026-05-22 — HTTP 422 with:
+```json
+{
+  "detail": [{
+    "type": "literal_error",
+    "loc": ["body", "booking_channel"],
+    "msg": "Input should be 'web', 'app', 'agent' or 'phone'",
+    "input": "carrier_pigeon"
+  }]
+}
+```
+
+This is Pydantic doing its job: the request body never reaches the transformer because the schema validation rejects it first. Defensible interview claim: "the typed request schema is the first line of defense; the model never sees malformed input."
+
+### 6. Test suite still green
+
+```bash
+pytest tests/
+```
+
+**Result:** ✓ 2026-05-22 — `14 passed in 1.27s`. No regression from adding the API layer.

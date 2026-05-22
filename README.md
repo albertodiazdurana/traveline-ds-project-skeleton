@@ -23,10 +23,10 @@ pip install -e ".[dev]"
 python scripts/make_sample_data.py
 
 # Train (logs to mlruns/)
-python -m rebooking.training.train
+python -m rebooking.models.train
 
 # Serve
-uvicorn rebooking.serving.app:app --reload
+uvicorn rebooking.api.main:app --reload
 
 # Test
 pytest tests/
